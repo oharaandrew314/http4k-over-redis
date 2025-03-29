@@ -12,8 +12,9 @@ abstract class AbstractRedissonTest: HttpOverRedisContract() {
 
     override fun getClient() = HttpOverRedis.redissonClient(
         redisson = redisson,
+        random = random,
         json = Moshi,
-        responseTimeout = Duration.ofMillis(500)
+        responseTimeout = Duration.ofSeconds(1)
     )
 
     override fun getServer(host: Host) = HttpOverRedis.redissonServer(

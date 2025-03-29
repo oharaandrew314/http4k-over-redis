@@ -12,8 +12,8 @@ import org.http4k.routing.path
 import org.http4k.routing.routes
 import org.http4k.server.ServerConfig
 import org.http4k.server.asServer
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.RepeatedTest
 
 @OptIn(ExperimentalStdlibApi::class)
 abstract class HttpOverRedisContract {
@@ -21,14 +21,14 @@ abstract class HttpOverRedisContract {
     abstract fun getClient(): HttpHandler
     abstract fun getServer(host: Host): ServerConfig
 
-    private val host = Host("app1")
+    protected val random = Random(1337)
+    private val host = Host("server_${random.nextBytes(4).toHexString()}")
 
     @BeforeEach
     fun setup() {
         routes(
             "/body" bind Method.POST to {
                 val content = it.body.stream.readAllBytes()
-                println("Server received ${content.toHexString()}")
                 Response(Status.OK).body(MemoryBody(content))
             },
             "/hello/{name}" bind Method.GET to {
@@ -45,27 +45,24 @@ abstract class HttpOverRedisContract {
             .then(getClient())
     }
 
-    @Test
+    @RepeatedTest(10)
     fun `GET request with response body`() = repeat(10) {
         println("GET $it")
-        val response = Request(Method.GET, "/hello/bob").let(httpClient)
+        val name = random.nextBytes(8).toHexString()
+        val response = Request(Method.GET, "/hello/$name").let(httpClient)
         response shouldHaveStatus Status.OK
-        response shouldHaveBody "bob"
+        response shouldHaveBody name
     }
 
-    @Test
+    @RepeatedTest(10)
     fun `POST request with large binary body`() = repeat(10) {
         println("POST $it")
-        val content = Random(1337).nextBytes(8)
-        println("Generated ${content.toHexString()}")
-
+        val content = random.nextBytes(8)
         val response = Request(Method.POST, "/body")
             .body(MemoryBody(content))
             .let(httpClient)
 
         response shouldHaveStatus Status.OK
-        val received = response.body.stream.readAllBytes().toHexString()
-        println("Got back $received")
         response.body.stream.readAllBytes().toHexString() shouldBe content.toHexString()
     }
 

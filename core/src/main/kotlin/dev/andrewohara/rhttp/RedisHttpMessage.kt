@@ -28,7 +28,7 @@ data class RedisHttpMessage(
     val headers: Headers,
     val bodyBase64: String
 ) {
-    constructor(request: Request, clientId: String, requestId: String = UUID.randomUUID().toString()): this(
+    constructor(request: Request, clientId: String, requestId: String): this(
         clientId = clientId,
         requestId = requestId,
         method = request.method,

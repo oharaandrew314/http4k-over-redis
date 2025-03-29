@@ -13,7 +13,8 @@ abstract class AbstractJedisTest: HttpOverRedisContract() {
     override fun getClient() = HttpOverRedis.jedisClient(
         pool = jedis,
         json = Moshi,
-        responseTimeout = Duration.ofMillis(500)
+        random = random,
+        responseTimeout = Duration.ofSeconds(1)
     )
 
     override fun getServer(host: Host) = HttpOverRedis.jedisServer(

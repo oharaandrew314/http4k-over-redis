@@ -1,14 +1,14 @@
 package dev.andrewohara.rhttp
 
-import dev.andrewohara.http.REDIS_PORT
 import dev.andrewohara.http.redisContainer
 import org.redisson.Redisson
+import org.redisson.api.RedissonClient
 import org.redisson.config.Config
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers
-class RedisTest: AbstractRedissonTest() {
+class RedissonRedisTest: AbstractRedissonTest() {
 
     companion object {
         @Container
@@ -16,7 +16,7 @@ class RedisTest: AbstractRedissonTest() {
         val container = redisContainer()
     }
 
-    override val redisson = Config()
-        .apply { useSingleServer().setAddress("redis://localhost:${container.getMappedPort(REDIS_PORT)}") }
+    override val redisson: RedissonClient = Config()
+        .apply { useSingleServer().setAddress("redis://${container.redisHost}:${container.redisPort}") }
         .let { Redisson.create(it) }
 }

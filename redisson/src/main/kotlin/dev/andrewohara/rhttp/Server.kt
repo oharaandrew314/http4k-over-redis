@@ -16,9 +16,10 @@ fun <NODE> HttpOverRedis.redissonServer(
         private val requestTopic = redisson.getTopic(host.value)
         private var listenerId: Int? = null
 
-        override fun port() = -1
+        override fun port() = throw NotImplementedError("http-over-redis does not bind to a port")
 
         override fun start(): Http4kServer {
+            println("$host start listening")
             listenerId = requestTopic.addListener(String::class.java) { _, msg ->
                 val parsed = RedisHttpMessage.parse(msg, json)
                 val response = http(parsed.toRequest())
@@ -26,6 +27,7 @@ fun <NODE> HttpOverRedis.redissonServer(
                 val responseMessage = RedisHttpMessage(response, parsed.clientId, parsed.requestId)
                 redisson.getTopic(parsed.clientId).publish(responseMessage.toJson(json))
             }
+            println("$host listening on $listenerId")
 
             return this
         }
