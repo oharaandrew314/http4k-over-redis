@@ -6,6 +6,7 @@ import kotlin.random.Random
 import org.http4k.core.*
 import org.http4k.filter.ClientFilters
 import org.http4k.kotest.shouldHaveBody
+import org.http4k.kotest.shouldHaveHeader
 import org.http4k.kotest.shouldHaveStatus
 import org.http4k.routing.bind
 import org.http4k.routing.path
@@ -27,9 +28,10 @@ abstract class HttpOverRedisContract {
     @BeforeEach
     fun setup() {
         routes(
-            "/body" bind Method.POST to {
-                val content = it.body.stream.readAllBytes()
-                Response(Status.OK).body(MemoryBody(content))
+            "/echo" bind {
+                Response(Status.OK)
+                    .body(it.body)
+                    .headers(it.headers)
             },
             "/hello/{name}" bind Method.GET to {
                 Response(Status.OK).body(it.path("name")!!)
@@ -47,7 +49,6 @@ abstract class HttpOverRedisContract {
 
     @RepeatedTest(10)
     fun `GET request with response body`() = repeat(10) {
-        println("GET $it")
         val name = random.nextBytes(8).toHexString()
         val response = Request(Method.GET, "/hello/$name").let(httpClient)
         response shouldHaveStatus Status.OK
@@ -56,9 +57,8 @@ abstract class HttpOverRedisContract {
 
     @RepeatedTest(10)
     fun `POST request with large binary body`() = repeat(10) {
-        println("POST $it")
         val content = random.nextBytes(8)
-        val response = Request(Method.POST, "/body")
+        val response = Request(Method.POST, "/echo")
             .body(MemoryBody(content))
             .let(httpClient)
 
@@ -66,5 +66,15 @@ abstract class HttpOverRedisContract {
         response.body.stream.readAllBytes().toHexString() shouldBe content.toHexString()
     }
 
-    // test headers
+    @RepeatedTest(10)
+    fun `GET with headers`()  = repeat(10) {
+        val response = Request(Method.GET, "/echo")
+            .header("foo", "bar")
+            .header("params", "toll=troll;spam=ham")
+            .let(httpClient)
+
+        response shouldHaveStatus Status.OK
+        response.shouldHaveHeader("foo", "bar")
+        response.shouldHaveHeader("params", "toll=troll;spam=ham")
+    }
 }
