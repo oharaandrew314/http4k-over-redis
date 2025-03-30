@@ -53,7 +53,7 @@ dependencies {
 ```kotlin
 // Example.kt
 
-import dev.andrewohara.http.jedisMock
+import com.github.fppt.jedismock.RedisServer
 import org.http4k.config.Host
 import org.http4k.core.*
 import org.http4k.format.Moshi
@@ -66,22 +66,25 @@ private fun http(host: Host): HttpHandler = {
 }
 
 fun main() {
+    // Start fake redis server (testing only)
+    val redisServer = RedisServer.newRedisServer().start()
+
     // replace with URI to your own redis/valkey server
-    val redis = JedisPool("redis://localhost:${jedisMock().bindPort}")
+    val jedis = JedisPool("redis://localhost:${redisServer.bindPort}")
 
     // Start server A
     val hostA = Host("A")
     http(hostA)
-        .asServer(JedisHttpServer(redis, hostA, Moshi))
+        .asServer(JedisHttpServer(jedis, hostA, Moshi))
         .start()
-    
+
     // Start server B
     val hostB = Host("B")
     http(hostB)
-        .asServer(JedisHttpServer(redis, hostB, Moshi))
+        .asServer(JedisHttpServer(jedis, hostB, Moshi))
         .start()
 
-    val client = JedisHttpClient(redis, Moshi)
+    val client = JedisHttpClient(jedis, Moshi)
 
     // Send a request to server A
     Request(Method.GET, "http://A/foo")
