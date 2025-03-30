@@ -1,5 +1,4 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Maven Central Version](https://img.shields.io/maven-central/v/dev.andrewohara/http4k-over-redis)](https://central.sonatype.com/artifact/dev.andrewohara/http4k-over-redis)
 
 # Http4k over Redis
 
@@ -17,23 +16,37 @@ Instead, route to them using an ID of your choice over a shared redis server.
 - Java 21
 - Http4k 6
 
-## Compatibility
+## Modules
 
-|            | http4k-over-redis-jedis | httpk-over-redis-redisson | 
-|------------|-------------------------|---------------------------|
-| Redis      | :white_check_mark:      | :white_check_mark:        |
-| Valkey     | :white_check_mark:      | :white_check_mark:        |
-| jedis-mock | :white_check_mark:      | :x:                       |
+### Jedis
+
+[![Maven Central Version](https://img.shields.io/maven-central/v/dev.andrewohara/http4k-over-redis-jedis)](https://central.sonatype.com/artifact/dev.andrewohara/http4k-over-redis-jedis)
+
+| Server    | Redis              | Valkey             | [fppt/jedis-mock](https://github.com/fppt/jedis-mock) |
+|-----------|--------------------|--------------------|-------------------------------------------------------|
+| Supported | :white_check_mark: | :white_check_mark: | :white_check_mark:                                    |
+
+### Redisson
+
+[![Maven Central Version](https://img.shields.io/maven-central/v/dev.andrewohara/http4k-over-redis-redisson)](https://central.sonatype.com/artifact/dev.andrewohara/http4k-over-redis-redisson)
+
+| Server    | Redis              | Valkey             | [fppt/jedis-mock](https://github.com/fppt/jedis-mock) |
+|-----------|--------------------|--------------------|-------------------------------------------------------|
+| Supported | :white_check_mark: | :white_check_mark: | :x:                                                   |
 
 ## Quickstart
+
+Use Jedis running against a jedis-mock server
 
 ```kotlin
 // build.gradle.kts
 
 dependencies {
     implementation("dev.andrewohara:http4k-over-redis-jedis:_")
-    implementation("org.http4k:http4k-format-moshi:_")
     implementation("com.github.fppt:jedis-mock:_")
+
+    // Any Json implementation from http4k-format will work
+    implementation("org.http4k:http4k-format-moshi:_")
 }
 ```
 
