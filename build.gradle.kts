@@ -1,8 +1,6 @@
-import com.vanniktech.maven.publish.SonatypeHost
-
 plugins {
     kotlin("jvm")
-    id("com.vanniktech.maven.publish")
+    id("com.vanniktech.maven.publish") apply false
     `java-test-fixtures`
 }
 
@@ -33,8 +31,4 @@ subprojects {
     tasks.test {
         useJUnitPlatform()
     }
-}
-
-mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
 }
