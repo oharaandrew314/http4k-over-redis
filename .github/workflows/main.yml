@@ -7,19 +7,14 @@ on:
     branches: [ main ]
 
 jobs:
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout latest code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: 21
-          distribution: temurin
   test:
     runs-on: ${{ matrix.os }}
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
     strategy:
       fail-fast: false
       matrix:
@@ -36,11 +31,27 @@ jobs:
           java-version: ${{ matrix.java_version }}
           distribution: ${{ matrix.distribution }}
 
+      - name: Install Docker
+        run: |
+          apt-get update
+          apt-get install -y docker.io
+
+      - name: Test Docker
+        run: |
+          docker version
+          docker info
+
       - name: Test
         run: sh ./gradlew check --stacktrace
   publish:
     needs: [ test ]
     runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
     if: "!contains(github.event.commits[0].message, '[skip ci]')"
     steps:
       - name: Checkout latest code
@@ -51,6 +62,16 @@ jobs:
         with:
           java-version: 21
           distribution: temurin
+
+      - name: Install Docker
+        run: |
+          apt-get update
+          apt-get install -y docker.io
+
+      - name: Test Docker
+        run: |
+          docker version
+          docker info
 
       - name: Publish
         env:
