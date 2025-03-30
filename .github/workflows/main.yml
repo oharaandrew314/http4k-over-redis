@@ -29,7 +29,7 @@ jobs:
       - name: Checkout latest code
         uses: actions/checkout@v4
 
-      - name: Set up JDK
+      - name: Set up JDK foo
         uses: actions/setup-java@v4
         with:
           java-version: 21
