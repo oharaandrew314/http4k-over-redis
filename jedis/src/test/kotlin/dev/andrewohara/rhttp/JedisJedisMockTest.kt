@@ -1,8 +1,8 @@
 package dev.andrewohara.rhttp
 
 import dev.andrewohara.http.jedisMock
-import redis.clients.jedis.JedisPool
+import redis.clients.jedis.RedisClient
 
 class JedisJedisMockTest: AbstractJedisTest() {
-    override val jedis = JedisPool("localhost", jedisMock().bindPort)
+    override val client: RedisClient = RedisClient.create("localhost", jedisMock().bindPort)
 }

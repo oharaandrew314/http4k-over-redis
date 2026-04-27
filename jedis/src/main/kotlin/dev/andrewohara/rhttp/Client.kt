@@ -2,19 +2,19 @@ package dev.andrewohara.rhttp
 
 import org.http4k.core.*
 import org.http4k.format.Json
-import redis.clients.jedis.JedisPool
 import redis.clients.jedis.JedisPubSub
 import java.time.Clock
 import java.time.Duration
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
+import redis.clients.jedis.RedisClient
 import kotlin.random.Random
 
 
 @OptIn(ExperimentalStdlibApi::class)
 object JedisHttpClient {
     operator fun <NODE> invoke(
-        pool: JedisPool,
+        client: RedisClient,
         json: Json<NODE>,
         random: Random = Random,
         clock: Clock = Clock.systemUTC(),
@@ -37,16 +37,14 @@ object JedisHttpClient {
         }
 
         Thread.startVirtualThread {
-            pool.resource.use {
-                try {
-                    logger.debug { "Subscribe" }
-                    it.subscribe(subscription, clientId)
-                } catch (e: Throwable) {
-                    logger.error(e) { "Error subscribing" }
-                } finally {
-                    subscription.unsubscribe()
-                    logger.debug { "Unsubscribed" }
-                }
+            try {
+                logger.debug { "Subscribe" }
+                client.subscribe(subscription, clientId)
+            } catch (e: Throwable) {
+                logger.error(e) { "Error subscribing" }
+            } finally {
+                subscription.unsubscribe()
+                logger.debug { "Unsubscribed" }
             }
         }.also { it.name = "$clientId-subscription" }
 
@@ -57,14 +55,12 @@ object JedisHttpClient {
         return { request ->
             val message = RedisHttpMessage(request, clientId, "request_${random.nextBytes(4).toHexString()}")
 
-            pool.resource.use { jedis ->
-                try {
-                    jedis.publish(request.uri.host, message.toJson(json))
-                    logger.debug { "Sent ${message.requestId} to ${request.uri.host}" }
-                } catch (e: ClassCastException) {
-                    logger.warn(e) { "Error sending ${message.requestId} to ${request.uri.host}" }
-                    // ignore.  Was sent anyway
-                }
+            try {
+                client.publish(request.uri.host, message.toJson(json))
+                logger.debug { "Sent ${message.requestId} to ${request.uri.host}" }
+            } catch (e: ClassCastException) {
+                logger.warn(e) { "Error sending ${message.requestId} to ${request.uri.host}" }
+                // ignore.  Was sent anyway
             }
 
             val response = HttpOverRedisUtils.await(responseTimeout, clock) {

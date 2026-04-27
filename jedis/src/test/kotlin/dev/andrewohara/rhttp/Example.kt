@@ -5,7 +5,7 @@ import org.http4k.config.Host
 import org.http4k.core.*
 import org.http4k.format.Moshi
 import org.http4k.server.asServer
-import redis.clients.jedis.JedisPool
+import redis.clients.jedis.RedisClient
 
 // create a server handler that responds with its own host and the request path
 private fun http(host: Host): HttpHandler = {
@@ -17,7 +17,7 @@ fun main() {
     val redisServer = RedisServer.newRedisServer().start()
 
     // replace with URI to your own redis/valkey server
-    val jedis = JedisPool("redis://localhost:${redisServer.bindPort}")
+    val jedis = RedisClient.create("redis://localhost:${redisServer.bindPort}")
 
     // Start server A
     val hostA = Host("A")

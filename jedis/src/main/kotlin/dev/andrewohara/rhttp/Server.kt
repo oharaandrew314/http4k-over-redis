@@ -6,14 +6,14 @@ import org.http4k.core.HttpHandler
 import org.http4k.format.Json
 import org.http4k.server.Http4kServer
 import org.http4k.server.ServerConfig
-import redis.clients.jedis.JedisPool
 import redis.clients.jedis.JedisPubSub
+import redis.clients.jedis.RedisClient
 import java.time.Clock
 import java.time.Duration
 
 object JedisHttpServer {
     operator fun <NODE> invoke(
-        pool: JedisPool,
+        client: RedisClient,
         host: Host,
         json: Json<NODE>,
         clock: Clock = Clock.systemUTC(),
@@ -41,14 +41,12 @@ object JedisHttpServer {
                                 requestId = parsed.requestId
                             )
 
-                            pool.resource.use { jedis ->
-                                try {
-                                    jedis.publish(parsed.clientId, responseMessage.toJson(json))
-                                    logger.debug { "Sent response for ${parsed.requestId} to ${parsed.clientId}" }
-                                } catch (e: ClassCastException) {
-                                    logger.warn(e) { "Error sending response for ${parsed.requestId} to ${parsed.clientId}" }
-                                    // ignore.  Was sent anyway
-                                }
+                            try {
+                                client.publish(parsed.clientId, responseMessage.toJson(json))
+                                logger.debug { "Sent response for ${parsed.requestId} to ${parsed.clientId}" }
+                            } catch (e: ClassCastException) {
+                                logger.warn(e) { "Error sending response for ${parsed.requestId} to ${parsed.clientId}" }
+                                // ignore.  Was sent anyway
                             }
                         } catch (e: Throwable) {
                             logger.error(e) { "Error!" }
@@ -58,7 +56,7 @@ object JedisHttpServer {
 
                 pollThread = Thread.startVirtualThread {
                     try {
-                        pool.resource.subscribe(subscription, host.value)
+                        client.subscribe(subscription, host.value)
                     } catch (e: Throwable) {
                         logger.error(e) { "Error subscribing" }
                     } finally {

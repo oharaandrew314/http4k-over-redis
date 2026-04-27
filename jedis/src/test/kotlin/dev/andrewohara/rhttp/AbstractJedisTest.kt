@@ -3,22 +3,22 @@ package dev.andrewohara.rhttp
 import dev.andrewohara.http.HttpOverRedisContract
 import org.http4k.config.Host
 import org.http4k.format.Moshi
-import redis.clients.jedis.JedisPool
+import redis.clients.jedis.RedisClient
 import java.time.Duration
 
 abstract class AbstractJedisTest: HttpOverRedisContract() {
 
-    abstract val jedis: JedisPool
+    abstract val client: RedisClient
 
     override fun getClient() = JedisHttpClient(
-        pool = jedis,
+        client = client,
         json = Moshi,
         random = random,
         responseTimeout = Duration.ofSeconds(1)
     )
 
     override fun getServer(host: Host) = JedisHttpServer(
-        pool = jedis,
+        client = client,
         host = host,
         json = Moshi
     )

@@ -61,6 +61,7 @@ fun RedisHttpMessage.toResponse() = Response(Status(statusCode!!, statusReason))
     .headers(headers)
     .body(MemoryBody(bodyBase64.base64DecodedArray()))
 
+@Suppress("UNCHECKED_CAST")
 fun <NODE> RedisHttpMessage.Companion.parse(message: String, json: Json<NODE>): RedisHttpMessage {
     val node = json.parse(message)
 
@@ -106,7 +107,7 @@ fun <NODE> RedisHttpMessage.toJson(json: Json<NODE>): String = json {
         }
 
         if (uri != null) {
-            this += URI to string(uri.toString())
+            this += URI to string(uri)
         }
 
         if (statusCode != null) {
