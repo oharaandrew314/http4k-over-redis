@@ -13,7 +13,7 @@ allprojects {
 subprojects {
     apply(plugin = "kotlin")
     apply(plugin = "java-test-fixtures")
-    apply(plugin = "com.vanniktech.maven.publish")
+//    apply(plugin = "com.vanniktech.maven.publish")
 
     dependencies {
         api(platform(Http4k.bom))
