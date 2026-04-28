@@ -1,7 +1,6 @@
 package dev.andrewohara.rhttp
 
 import dev.andrewohara.http.HttpOverRedisContract
-import org.http4k.config.Host
 import org.http4k.format.Moshi
 import org.redisson.api.RedissonClient
 import java.time.Duration
@@ -17,9 +16,9 @@ abstract class AbstractRedissonTest: HttpOverRedisContract() {
         responseTimeout = Duration.ofSeconds(1)
     )
 
-    override fun getServer(host: Host) = RedissonHttpServer(
+    override fun getServer(hostId: String) = RedissonHttpServer(
         redisson = redisson,
-        host = host,
+        hostId = hostId,
         json = Moshi
     )
 }

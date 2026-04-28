@@ -1,17 +1,17 @@
 package dev.andrewohara.rhttp
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.*
 import org.http4k.format.Json
-import redis.clients.jedis.JedisPubSub
 import java.time.Clock
 import java.time.Duration
-import com.github.benmanes.caffeine.cache.Caffeine
-import io.github.oshai.kotlinlogging.KotlinLogging
 import redis.clients.jedis.RedisClient
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.random.Random
 
-
-@OptIn(ExperimentalStdlibApi::class)
 object JedisHttpClient {
     operator fun <NODE> invoke(
         client: RedisClient,
@@ -21,53 +21,46 @@ object JedisHttpClient {
         subscribeTimeout: Duration = Duration.ofSeconds(1),
         responseTimeout: Duration = Duration.ofSeconds(10),
     ): HttpHandler {
+        val logger = KotlinLogging.logger {  }
         val clientId = "client_${random.nextBytes(4).toHexString()}"
-        val logger = KotlinLogging.logger(clientId)
 
-        val responseCache = Caffeine.newBuilder()
-            .expireAfterWrite(responseTimeout)
-            .build<String, Response>()
+        val pendingRequests = ConcurrentHashMap<String, CompletableFuture<Response>>()
 
-        val subscription = object : JedisPubSub() {
-            override fun onMessage(channel: String, message: String) {
-                val parsed = RedisHttpMessage.parse(message, json)
-                logger.debug { "Got response to ${parsed.requestId}" }
-                responseCache.put(parsed.requestId, parsed.toResponse())
-            }
+        // subscribe to responses (small worker since it's a lightweight operation)
+        val responsePool = boundedThreadPool(
+            minThreads = 1,
+            maxThreads = 1,
+            queueSize = 100,
+            threadNamePrefix = "$clientId-handler",
+            withBackPressure = true // slow down redis if we can't process immediately
+        )
+
+        client.subscribeNonBlocking(clientId, subscribeTimeout, responsePool) { message ->
+            val parsed = RedisHttpMessage.parse(message, json)
+            pendingRequests.remove(parsed.requestId)?.complete(parsed.toResponse())
         }
-
-        Thread.startVirtualThread {
-            try {
-                logger.debug { "Subscribe" }
-                client.subscribe(subscription, clientId)
-            } catch (e: Throwable) {
-                logger.error(e) { "Error subscribing" }
-            } finally {
-                subscription.unsubscribe()
-                logger.debug { "Unsubscribed" }
-            }
-        }.also { it.name = "$clientId-subscription" }
-
-        subscription.waitForSubscribed(subscribeTimeout, clock)
-
-        logger.debug { "Started" }
 
         return { request ->
             val message = RedisHttpMessage(request, clientId, "request_${random.nextBytes(4).toHexString()}")
 
+            val future = CompletableFuture<Response>()
+            pendingRequests[message.requestId] = future
+
             try {
                 client.publish(request.uri.host, message.toJson(json))
-                logger.debug { "Sent ${message.requestId} to ${request.uri.host}" }
+                logger.trace { "Sent ${message.requestId} to ${request.uri.host}" }
             } catch (e: ClassCastException) {
                 logger.warn(e) { "Error sending ${message.requestId} to ${request.uri.host}" }
                 // ignore.  Was sent anyway
             }
 
-            val response = HttpOverRedisUtils.await(responseTimeout, clock) {
-                responseCache.getIfPresent(message.requestId)
+            try {
+                future.get(responseTimeout.toMillis(), TimeUnit.MILLISECONDS)
+            } catch (_: TimeoutException) {
+                Response(Status.CLIENT_TIMEOUT)
+            } finally {
+                pendingRequests -= message.requestId
             }
-
-            response ?: Response(Status.REQUEST_TIMEOUT)
         }
     }
 }

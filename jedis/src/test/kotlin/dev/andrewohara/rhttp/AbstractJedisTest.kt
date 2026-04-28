@@ -1,7 +1,6 @@
 package dev.andrewohara.rhttp
 
 import dev.andrewohara.http.HttpOverRedisContract
-import org.http4k.config.Host
 import org.http4k.format.Moshi
 import redis.clients.jedis.RedisClient
 import java.time.Duration
@@ -17,9 +16,9 @@ abstract class AbstractJedisTest: HttpOverRedisContract() {
         responseTimeout = Duration.ofSeconds(1)
     )
 
-    override fun getServer(host: Host) = JedisHttpServer(
+    override fun getServer(hostId: String) = JedisHttpServer(
         client = client,
-        host = host,
+        hostId = hostId,
         json = Moshi
     )
 }

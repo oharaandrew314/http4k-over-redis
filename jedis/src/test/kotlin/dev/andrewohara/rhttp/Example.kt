@@ -1,15 +1,14 @@
 package dev.andrewohara.rhttp
 
 import com.github.fppt.jedismock.RedisServer
-import org.http4k.config.Host
 import org.http4k.core.*
 import org.http4k.format.Moshi
 import org.http4k.server.asServer
 import redis.clients.jedis.RedisClient
 
 // create a server handler that responds with its own host and the request path
-private fun http(host: Host): HttpHandler = {
-    Response(Status.OK).body("${host.value}:${it.uri.path}")
+private fun http(hostId: String): HttpHandler = {
+    Response(Status.OK).body("$hostId:${it.uri.path}")
 }
 
 fun main() {
@@ -20,13 +19,13 @@ fun main() {
     val jedis = RedisClient.create("redis://localhost:${redisServer.bindPort}")
 
     // Start server A
-    val hostA = Host("A")
+    val hostA = "A"
     http(hostA)
         .asServer(JedisHttpServer(jedis, hostA, Moshi))
         .start()
 
     // Start server B
-    val hostB = Host("B")
+    val hostB = "B"
     http(hostB)
         .asServer(JedisHttpServer(jedis, hostB, Moshi))
         .start()

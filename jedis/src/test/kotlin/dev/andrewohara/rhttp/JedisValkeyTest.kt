@@ -14,5 +14,5 @@ class JedisValkeyTest: AbstractJedisTest() {
         val container = valkeyContainer()
     }
 
-    override val client = RedisClient.create(container.redisHost, container.redisPort)
+    override val client: RedisClient = RedisClient.create(container.redisHost, container.redisPort)
 }

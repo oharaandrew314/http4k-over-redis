@@ -1,7 +1,6 @@
 package dev.andrewohara.http
 
 import io.kotest.matchers.shouldBe
-import org.http4k.config.Host
 import kotlin.random.Random
 import org.http4k.core.*
 import org.http4k.filter.ClientFilters
@@ -20,10 +19,10 @@ import org.junit.jupiter.api.RepeatedTest
 abstract class HttpOverRedisContract {
 
     abstract fun getClient(): HttpHandler
-    abstract fun getServer(host: Host): ServerConfig
+    abstract fun getServer(hostId: String): ServerConfig
 
     protected val random = Random(1337)
-    private val host = Host("server_${random.nextBytes(4).toHexString()}")
+    private val hostId = "server_${random.nextBytes(4).toHexString()}"
 
     @BeforeEach
     fun setup() {
@@ -37,13 +36,13 @@ abstract class HttpOverRedisContract {
                 Response(Status.OK).body(it.path("name")!!)
             }
         )
-            .asServer(getServer(host))
+            .asServer(getServer(hostId))
             .also { it.start() }
     }
 
     private val httpClient by lazy {
         ClientFilters
-            .SetHostFrom(Uri.of("http://${host.value}"))
+            .SetHostFrom(Uri.of("http://$hostId"))
             .then(getClient())
     }
 

@@ -1,6 +1,5 @@
 package dev.andrewohara.rhttp
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.http4k.core.HttpHandler
 import org.http4k.core.Response
@@ -9,10 +8,13 @@ import org.http4k.format.Json
 import org.redisson.api.RedissonClient
 import java.time.Clock
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import  java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.random.Random
 
 object RedissonHttpClient {
-    @OptIn(ExperimentalStdlibApi::class)
     operator fun <NODE> invoke(
         redisson: RedissonClient,
         json: Json<NODE>,
@@ -23,17 +25,15 @@ object RedissonHttpClient {
         val clientId = "client_${random.nextBytes(4).toHexString()}"
         val logger = KotlinLogging.logger(clientId)
 
-        val responseCache = Caffeine.newBuilder()
-            .expireAfterWrite(responseTimeout)
-            .build<String, Response>()
+        val pendingRequests = ConcurrentHashMap<String, CompletableFuture<Response>>()
 
         redisson.getTopic(clientId).addListener(String::class.java) { _, msg ->
             val parsed = RedisHttpMessage.parse(msg, json)
-            logger.debug { "Got response to ${parsed.requestId}" }
-            responseCache.put(parsed.requestId, parsed.toResponse())
+            logger.trace { "Got response to ${parsed.requestId}" }
+            pendingRequests[parsed.requestId]?.complete(parsed.toResponse())
         }
 
-        logger.debug { "Started" }
+        logger.trace { "Started" }
 
         return { request ->
             val message = RedisHttpMessage(
@@ -41,14 +41,20 @@ object RedissonHttpClient {
                 clientId = clientId,
                 requestId = "request_${random.nextBytes(4).toHexString()}"
             )
+
+            val future = CompletableFuture<Response>()
+            pendingRequests[message.requestId] = future
+
             redisson.getTopic(request.uri.host).publish(message.toJson(json))
-            logger.debug { "Sent ${message.requestId} to ${request.uri.host}" }
+            logger.trace { "Sent ${message.requestId} to ${request.uri.host}" }
 
-            val response = HttpOverRedisUtils.await(responseTimeout, clock) {
-                responseCache.getIfPresent(message.requestId)
+            try {
+                future.get(responseTimeout.toMillis(), TimeUnit.MILLISECONDS)
+            } catch(_: TimeoutException) {
+                Response(Status.CLIENT_TIMEOUT)
+            } finally {
+                pendingRequests.remove(message.requestId)
             }
-
-            response ?: Response(Status.REQUEST_TIMEOUT)
         }
     }
 }

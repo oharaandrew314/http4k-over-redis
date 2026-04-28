@@ -5,7 +5,6 @@ import org.http4k.base64Encode
 import org.http4k.core.*
 import org.http4k.format.Json
 import org.http4k.format.JsonType
-import java.util.*
 
 private const val CLIENT_ID = "clientId"
 private const val REQUEST_ID = "requestId"
