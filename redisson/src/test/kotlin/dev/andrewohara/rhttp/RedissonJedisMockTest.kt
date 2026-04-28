@@ -6,7 +6,7 @@ import org.redisson.api.RedissonClient
 import org.redisson.config.Config
 import kotlin.test.Ignore
 
-@Ignore("doesn't work properly")
+@Ignore("jedis-mock doesn't support Redisson's multiplexed subscriptions")
 class RedissonJedisMockTest: AbstractRedissonTest() {
 
     override val redisson: RedissonClient = Config()
