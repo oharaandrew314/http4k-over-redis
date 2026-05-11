@@ -24,7 +24,7 @@ jobs:
   publish:
     needs: [ test ]
     runs-on: ubuntu-latest
-    if: github.ref_name == 'main'
+    if: github.event_name == 'release'
     steps:
       - name: Checkout latest code
         uses: actions/checkout@v4
@@ -37,6 +37,7 @@ jobs:
 
       - name: Publish
         env:
+          ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.release.tag_name }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.central_username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.central_password }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing_key }}

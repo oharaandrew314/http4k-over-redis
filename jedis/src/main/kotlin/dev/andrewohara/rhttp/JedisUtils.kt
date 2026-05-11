@@ -4,9 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import redis.clients.jedis.JedisPubSub
 import redis.clients.jedis.RedisClient
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -22,8 +22,10 @@ fun RedisClient.subscribeNonBlocking(
 ): Thread {
     val logger = KotlinLogging.logger { }
 
-    val watchDogPool = Executors.newVirtualThreadPerTaskExecutor()
     val subscribedLatch = CountDownLatch(1)
+    val workerFactory = Thread.ofVirtual()
+        .name("$channel-worker-", 0)
+        .factory()
 
     val pubSub = object : JedisPubSub() {
         override fun onSubscribe(channel: String?, subscribedChannels: Int) {
@@ -32,14 +34,27 @@ fun RedisClient.subscribeNonBlocking(
 
         override fun onMessage(channel: String?, message: String) {
             executor.execute {
+                val completed = CompletableFuture<Unit>()
+
+                // spawn a worker we can enforce a timeout on
+                val worker = workerFactory.newThread {
+                    try {
+                        fn(message)
+                        completed.complete(Unit)
+                    } catch (e: Throwable) {
+                        completed.completeExceptionally(e)
+                    }
+                }.also { it.start() }
+
                 try {
-                    // Enforce a hard timeout on the execution of the handler
-                    // This protects the pool from being saturated by hanging tasks
-                    watchDogPool.submit { fn(message) }.get(fnTimeout.toMillis(), TimeUnit.MILLISECONDS)
+                    completed.get(fnTimeout.toMillis(), TimeUnit.MILLISECONDS)
                 } catch (e: TimeoutException) {
                     logger.warn(e) { "Handler for $channel timed out after $fnTimeout" }
                 } catch (e: Exception) {
                     logger.error(e) { "Error processing message from $channel" }
+                } finally {
+                    completed.cancel(true)
+                    worker.interrupt()
                 }
             }
         }
@@ -59,9 +74,9 @@ fun RedisClient.subscribeNonBlocking(
             }
         }
     }.also {
-        // we need to wait for the subscription to complete; or else the server will be useless
+        // Wait for the subscription to complete
         if (!subscribedLatch.await(5, TimeUnit.SECONDS)) {
-            error("Failed to subscribe to $channel")
+            error("Failed to subscribe to $channel within PT5S")
         } else {
             logger.trace { "Subscribed to $channel" }
         }
